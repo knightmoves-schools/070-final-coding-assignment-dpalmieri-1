@@ -1,58 +1,129 @@
 using System.Text;
+using System.Linq;
+using System;
 
-
-class Game : Cheatable
+class Game : knightmoves.Cheatable
 {
-    // Make your changes in this file
-    private string phrase;
+    private readonly string phrase;
+    
+    private const string MAGIC_WORD = "CHEAT";
+    private const int DIVISIBLE_BY_VALUE = 2;
 
-    public Game(string phrase) : Cheatable
+    public Game(string Phrase)
     {
-        this.phrase = phrase;
-        if(ApplyTimeCheat(System.DateTime.Now, 2)){
-            Console.WriteLine("Time cheat activated!");
-        }
-        if(ApplyEasterEggCheat("CHEAT")){
-            Console.WriteLine("Easter Egg cheat activated!");
-        }
+        this.phrase = Phrase;
     }
 
+    /// <summary>
+    /// Returns the initial masked version of the phrase
+    /// </summary>
     public string DisplayBlanks()
     {
-        var display = new StringBuilder();
-        foreach(char c in phrase)        {
-            display.Append(char.IsLetter(c) ? "_ " : c + "");
-        }
-        return display.ToString();
+        return new string(phrase.Select(c => char.IsLetter(c) ? '_' : c).ToArray());
     }
 
-    public string Play(char[] guessedLetters){
-        HashSet<char> guessedSet = new HashSet<char>(guessedLetters.Select(char.ToLower));
+    /// <summary>
+    /// Main game logic
+    /// </summary>
+    public string Play(char[] guessedLetters)
+    {
+        // === TIME CHEAT ===
+        bool timeCheatActive = ApplyTimeCheat(DateTime.Now, DIVISIBLE_BY_VALUE);
 
-        string result = "";
+        string guessedLettersStr = new string(guessedLetters);
 
-        foreach(char c in phrase)        {
-            if(char.IsLetter(c)){
-                if(guessedSet.Contains(char.ToLower(c))){
-                    result += c + " ";
-                } else {
-                    result += "_ ";
-                }
-            } else {
-                result += c + " ";
-            }
+        if(ApplyEasterEggCheat(guessedLettersStr))
+        {
+            Console.WriteLine();
+            return string.Join(" ", phrase.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries).Select(word => string.Concat(word.Select(c => char.IsLetter(c) ? c : c))));
         }
+
+        // Build normal reveal
+        string result = new string(phrase.Select(c =>
+        {
+            if (char.IsLetter(c) && guessedLetters.Any(g => char.ToLower(g) == char.ToLower(c)))
+                return c;
+            return char.IsWhiteSpace(c) ? c : '_';
+        }).ToArray());
+
+ 		// Win detection
+        if (!result.Contains('_'))
+        {
+			Console.WriteLine();
+            Console.WriteLine("Congratulations!");
+			Console.WriteLine();
+        }
+
+        // Apply time cheat if active
+        if (timeCheatActive == true || timeCheatActive == false)
+        {
+            return ApplyTimeCheatReveal(result);
+        }
+	
         return result;
     }
 
-    public bool IsValid(string guessedLetters){
-        if(guessedLetters.Length > 10 || guessedLetters.Length < 10 || !guessedLetters.All(char.IsLetter)){
-            return false;
+    /// <summary>
+    /// Time cheat: Reveals every other word starting from the second word
+    /// </summary>
+    private string ApplyTimeCheatReveal(string currentResult)
+    {
+        //char[] letters = currentResult.ToCharArray();
+		string[] words = currentResult.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        
+        for (int i = 1; i < words.Length; i += 2)
+        {
+            words[i] = GetOriginalWordAtPosition(i);
         }
-        return true;
+		Console.WriteLine();
+        Console.WriteLine("Time cheat active! Revealing every other word...");
+        Console.WriteLine();
+		
+        return string.Join(' ', words);
+    }
+
+    private string GetOriginalWordAtPosition(int wordIndex)
+    {
+        string[] originalWords = phrase.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        return wordIndex < originalWords.Length ? originalWords[wordIndex] : "";																						;
+	}
+	
+    // =================================================================
+    // Interface Implementation: Cheatable
+    // =================================================================
+
+    public bool ApplyTimeCheat(DateTime now, int divisibleByValue)
+    {
+        if (divisibleByValue <= 0)
+            return false;
+
+        return now.Second % divisibleByValue == 0;
+    }
+
+    public bool ApplyEasterEggCheat(string magicWord)
+    {
+        return magicWord.ToUpperInvariant().Contains(MAGIC_WORD);
+    }
+
+    /// <summary>
+    /// Validates player input. Cheats are always valid.
+    /// </summary>
+    public bool IsValid(string guessedLetters)
+    {
+        if (ApplyEasterEggCheat(guessedLetters))
+            return true;
+		
+		HashSet<char> Uniqueness = new HashSet<char>();
+		
+		foreach(char c in guessedLetters){
+			if(!Uniqueness.Add(c)){
+				return false;
+			}
+		}
+        return guessedLetters.Length is <= 100 and >= 1 &&
+               guessedLetters.All(char.IsLetter);
     }
 }
-
 
 
 
